@@ -1,4 +1,13 @@
+#include <stdio.h>
+#include <pthread.h>
+#include <string.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <unistd.h>
 /*
+TO DO:
+ZAPYTAĆ JAK MAJĄ BYĆ TWORZENI KLIENCI
+
 Salon fryzjerski składa się z gabinetu z jednym
 fotelem (zasób wymagający synchronizacji)
 oraz z poczekalni zawierającej n krzeseł.
@@ -51,16 +60,31 @@ Za każdy przypadek potencjalnego wyścigu -3p.
 
 //1 - running in debug mode
 int debug = 0;
+//chairs
+long int N;
+//waiting rooms available chairs
+long int chairsAvailable;
+//how many clients resigned
+long int clientsResignationCount = 0;
+//
+pthread_mutex_t hairdressersChair = PTHREAD_MUTEX_INITIALIZER;
 
-#include <stdio.h>
-#include <pthread.h>
-#include <string.h>
-#include <stdlib.h>
+
+
+void* haircut(void* arg)
+{
+  pthread_mutex_lock(&hairdressersChair);
+  long *id;
+  id = (long*)arg;
+  printf("Haircutting... (in: %ld)\n", id);
+  usleep(250*1000);
+  pthread_mutex_unlock(&hairdressersChair);
+}
 
 int main(int argc, char* argv[])
 {
     //Invalid parameter cunt - end program
-    if(argc != 2 || argc != 3)
+    if(argc < 2 || argc > 3)
     {
         fprintf(stderr, "Invalid parameter count\n");
         return 1;
@@ -72,10 +96,30 @@ int main(int argc, char* argv[])
     }
     if(debug)
         printf("Debug mode enabled\n");
-    int N = atoi(argv[1]);
-    return 0;
+    char* endptr;
+    N = strtol(argv[1], &endptr,10);
+    if(*endptr != '\0' || N < 0 || N == LONG_MIN || N == LONG_MAX)
+    {
+      fprintf(stderr, "Invalid N parameter\n");
+      return 2;
+    }
+    //Set chairs available quantity to N
+    chairsAvailable = N;
+    if(debug)
+        printf("(debug) N chairs = %ld\n",N);
+    pthread_t* id_array;
+    id_array = (pthread_t*)malloc(sizeof(pthread_t)*N);
+    for(long j=0;j<N;j++)
+    {
+      id_array[j]=j;
+      pthread_create (&id_array[j], NULL, &haircut,(void*)&id_array[j]);
+    }
+    for(long j=0;j<N;j++)
+    {
+      pthread_join(id_array[j], NULL);
+    }
+    exit(EXIT_SUCCESS);
 }
-
 
 /*
 int main(int argc, char *argv[])
