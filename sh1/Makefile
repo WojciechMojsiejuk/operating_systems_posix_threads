@@ -1,8 +1,8 @@
 CFLAGS = -Wall --std=c99
-OBJ= main.o
+OBJ= main.o queue.o
 
 sleepinghairdresser1: $(OBJ)
-	gcc $(OBJ) -o sleepinghairdresser1 $(CFLAGS)
+	gcc $(OBJ) -pthread -o sleepinghairdresser1 $(CFLAGS)
 
 .PHONY : clean
 clean:
