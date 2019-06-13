@@ -15,7 +15,7 @@
 
 	void init(struct Queue *q);
 
-	char* front(struct Queue *q);
+	int front(struct Queue *q);
 
 	char* last(struct Queue *q);
 

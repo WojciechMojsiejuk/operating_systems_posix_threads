@@ -8,7 +8,7 @@ void init(struct Queue *q) {
 	q->size = 0;
 }
 
-char* front(struct Queue *q) {
+int front(struct Queue *q) {
   if(q->front != NULL)
   {
   	return q->front->id;
@@ -49,15 +49,15 @@ void push(struct Queue *q, int id) {
 	}
 }
 
-void print_queue(struct Queue *q)
-{
-  struct Client *temp = q->front;
-  while(temp !=NULL)
-  {
-      printf("%d, ",temp->id);
-      temp=temp->next;
-  }
-}
+// void print_queue(struct Queue *q)
+// {
+//   struct Client *temp = q->front;
+//   while(temp !=NULL)
+//   {
+//       printf("%s\n",temp->id);
+//       temp=temp->next;
+//   }
+// }
 
 int current_queue_size(struct Queue *q)
 {
