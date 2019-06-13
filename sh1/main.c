@@ -65,12 +65,12 @@ int debug = 0;
 long int N;
 //If hairdresser is busy (1) or not (0)
 sem_t hairdressersChairTaken;
-//If waiting room queue is empty(1) or not (0)
-sem_t queueEmpty;
+//If waiting room queue is not empty (1) or is empty (0)
+sem_t queueNotEmpty;
 //total clients count
 long int totalClientsCount;
 // blocks clientsResignationCount value
-pthread_mutex_t readingResigned = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t readingResignedCount = PTHREAD_MUTEX_INITIALIZER;
 //how many clients resigned
 int clientsResignationCount = 0;
 
@@ -81,16 +81,25 @@ int currentlyCutClientId=-1;
 pthread_mutex_t readingQueue = PTHREAD_MUTEX_INITIALIZER;
 //clients queue: waiting in waiting room
 struct Queue waitingRoom;
+
+struct Queue resigned;
 //clients
 
 //pthread_mutex_t readingQueue, readingResigned , hairdressersChair
 void show_message()
 {
-    printf("Res:%d WRomm: %d/%ld [in: %d]",
+    printf("Res:%d WRomm: %d/%ld [in: %d]\n",
     clientsResignationCount,
     current_queue_size(&waitingRoom),
     N,
     currentlyCutClientId);
+    printf("Kolejka czekających: ");
+    print_queue(&waitingRoom);
+    printf("\n");
+    printf("Kolejka zrezygnowanych: ");
+    print_queue(&resigned);
+    printf("\n");
+
 }
 void waiting(int sec)
 {
@@ -100,33 +109,49 @@ void waiting(int sec)
 // TO DO: rename to client
 void* haircut(void* arg)
 {
-  int id;
-  id = *((int *) arg);
-  pthread_mutex_lock(&hairdressersChair);
-  hairdressersChairTaken = 1;
-  currentlyCutClientId=id;
-  if(debug)
-    printf("Haircutting... (client id: %d)\n",id);
-  waiting(5);
-  hairdressersChairTaken = 0;
-  pthread_mutex_lock(&readingQueue);
-  pop(&waitingRoom);
-  if(debug)
-    printf("Leaving hairdresser... (client id: %d)\n",id );
-  pthread_mutex_unlock(&readingQueue);
-  pthread_mutex_unlock(&hairdressersChair);
-  return 0;
+    if (currentlyCutClientId != -1)
+        pop(&waitingRoom);
+    int id;
+    id = *((int *) arg);
+    pthread_mutex_lock(&hairdressersChair);
+    hairdressersChairTaken = 1;
+    currentlyCutClientId=id;
+    show_message();
+    if(debug)
+        printf("Haircutting... (client id: %d)\n",id);
+    waiting(5);
+    hairdressersChairTaken = 0;
+    pthread_mutex_lock(&readingQueue);
+    currentlyCutClientId=-1;
+    show_message();
+    if(debug)
+        printf("Leaving hairdresser... (client id: %d)\n",id );
+    pthread_mutex_unlock(&readingQueue);
+    pthread_mutex_unlock(&hairdressersChair);
+    return 0;
+}
+
+void* hairdresser(void* arg)
+{
+    while(1)
+    {
+        printf("zzz\n");
+        waiting(3);
+        //queue is empty (equals 0) -> sleep
+        sem_wait(&queueNotEmpty);
+
+    }
 }
 
 void* barberCut(struct Client* client)
 {
-  int cuttingTime = 1;
-  //cuttingTime = rand();
-  pthread_mutex_lock(&hairdressersChair);
-  printf("Haircutting... (in: %d)\n", client->id);
-  sleep(cuttingTime);
-  pthread_mutex_unlock(&hairdressersChair);
-  return 0;
+    int cuttingTime = 1;
+    //cuttingTime = rand();
+    // pthread_mutex_lock(&hairdressersChair);
+    printf("Haircutting... (in: %d)\n", client->id);
+    sleep(cuttingTime);
+    // pthread_mutex_unlock(&hairdressersChair);
+    return 0;
 }
 
 //Parameters: total chairs, total client, optional: -debug
@@ -163,19 +188,23 @@ int main(int argc, char* argv[])
     }
     if(debug)
         printf("Semaphores initialization\n");
-    sem_init(&queueEmpty,0,1);
+    sem_init(&queueNotEmpty,0,1);
     sem_init(&hairdressersChairTaken,0,0);
     if(debug)
         printf("(debug) N chairs = %ld\n",N);
     if(debug)
-        printf("Initialize queue\n");
+        printf("(debug) Initialize queues\n");
     init(&waitingRoom);
+    init(&resigned);
     // for(int i=0;i<totalClientsCount;i++)
     // {
     //     push(&waitingRoom,i);
     // }
     //int x;
-    //Create threads
+    //Create hairdresser threads
+    pthread_t hairdresserID;
+    pthread_create(&hairdresserID, NULL, &hairdresser, NULL);
+    //Create clients threads
     pthread_t* clientID;
     clientID = (pthread_t*)malloc(sizeof(pthread_t)*totalClientsCount);
     int* threadID = (int*)malloc(sizeof(int)*totalClientsCount);
@@ -183,24 +212,44 @@ int main(int argc, char* argv[])
     for(int j=0;j<totalClientsCount;j++)
     {
         //clients show up to the hairdresser
-        waiting(3);
+        waiting(1);
         threadID[j]=j;
         //checking if queue is full
-        pthread_mutex_lock(&readingQueue);
+        // pthread_mutex_lock(&readingQueue);
+        //TO DO: If client can go directly to hairdrasser's chair then he should not be added to waitingRoom
         if(current_queue_size(&waitingRoom)<N)
         {
-            push(&waitingRoom,j);
-            pthread_mutex_unlock(&readingQueue);
+            // pthread_mutex_lock(&readingResignedCount);
+            // pthread_mutex_lock(&hairdressersChair);
+            //
+            if (currentlyCutClientId != -1)
+            {
+                push(&waitingRoom,j);
+                show_message();
+            }
+            else
+            {
+                //obudz starego
+                sem_post(&queueNotEmpty);
+
+            }
+            // pthread_mutex_unlock(&hairdressersChair);
+            // pthread_mutex_unlock(&readingResignedCount);
+            // pthread_mutex_unlock(&readingQueue);
             pthread_create (&clientID[j], NULL, &haircut, (void*)&threadID[j]);
         }
         else
         {
             if(debug)
-                printf("Queue is full. (client id: %d) resigned \n",j);
-            pthread_mutex_lock(&readingResigned);
+                printf("Resigned... (client id: %d)\n",j);
+            // pthread_mutex_lock(&readingResignedCount);
             clientsResignationCount++;
-            pthread_mutex_unlock(&readingResigned);
-            pthread_mutex_unlock(&readingQueue);
+            push(&resigned,j);
+            // pthread_mutex_lock(&hairdressersChair);
+            show_message();
+            // pthread_mutex_unlock(&hairdressersChair);
+            // pthread_mutex_unlock(&readingResignedCount);
+            // pthread_mutex_unlock(&readingQueue);
         }
 
     }
