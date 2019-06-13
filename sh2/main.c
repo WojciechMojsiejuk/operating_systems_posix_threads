@@ -53,53 +53,45 @@ void* Client(void* numer) {
 			printf("Client %d resigned\n", id);
     }
     else
-    {
+    {   //klient staje w kolejce i czeka na swoje miejsce
         if(debug)
-            printf("Client found empty seat, clent id: %d\n", id);
-    	while (1) {
-    		pthread_mutex_lock(&mutex);
-            printf("1");
-    		do {
-                pthread_mutex_lock(&accessWaitingQueue);
-                printf("2");
-    			if (id==front(&waitingQueue) && front(&waitingQueue) != -1 )
-                {
-                    printf("3");
+            printf("Client joining queue, clent id: %d\n", id);
+        //Something changed -> print full message here
+        // pthread_mutex_lock(&accessWaitingQueue);
+        push(&waitingQueue, id);
+        if(debug)
+            printf("Waiting clients count: %d\n", current_queue_size(&waitingQueue));
+        pthread_mutex_unlock(&accessWaitingQueue);
 
-                    pthread_mutex_unlock(&mutex);
-                    if(debug)
-            			printf("Client leaving queue, clent id: %d\n", id);
-                    if(debug)
-            			printf("Queue front before: %d\n", front(&waitingQueue));
-                    if(debug)
-            			printf("Waiting clients count before: %d\n", current_queue_size(&waitingQueue));
-            		//Something changed -> print full message here
-            		pop(&waitingQueue);
-                    if(debug)
-            			printf("Queue front after: %d\n", front(&waitingQueue));
-                    pthread_mutex_unlock(&accessWaitingQueue);
-                    if(debug)
-            			printf("Waiting clients count: %d\n", current_queue_size(&waitingQueue));
-            		pthread_mutex_unlock(&accessWaitingQueue);
-                    break;
-                }
-    			else {
-                    pthread_mutex_unlock(&accessWaitingQueue);
-                    if(debug)
-            			printf("Client joining queue, clent id: %d\n", id);
-            		//Something changed -> print full message here
-            		pthread_mutex_lock(&accessWaitingQueue);
-            		push(&waitingQueue, id);
-                    if(debug)
-            			printf("Waiting clients count: %d\n", current_queue_size(&waitingQueue));
-            		pthread_mutex_unlock(&accessWaitingQueue);
-    				printf("\twątek #%d oczekuje na sygnał...\n", id);
-    				pthread_cond_wait(&chairAvailable, &mutex);
-    				printf("\t... wątek #%d otrzymał sygnał!\n", id);
-    			}
-    		} while (1);
-    		/* ... */
-    	}
+		pthread_mutex_lock(&mutex);
+		do {
+            pthread_mutex_lock(&accessWaitingQueue);
+			if (id==front(&waitingQueue) && front(&waitingQueue) != -1 )
+            {
+                if(debug)
+        			printf("Client leaving queue, clent id: %d\n", id);
+                if(debug)
+        			printf("Queue front before: %d\n", front(&waitingQueue));
+                if(debug)
+        			printf("Waiting clients count before: %d\n", current_queue_size(&waitingQueue));
+        		//Something changed -> print full message here
+        		pop(&waitingQueue);
+                if(debug)
+        			printf("Queue front after: %d\n", front(&waitingQueue));
+                if(debug)
+        			printf("Waiting clients count after: %d\n", current_queue_size(&waitingQueue));
+        		pthread_mutex_unlock(&accessWaitingQueue);
+                break;
+            }
+			else {
+				printf("\twątek #%d oczekuje na sygnał...\n", id);
+				pthread_cond_wait(&chairAvailable, &mutex);
+				printf("\t... wątek #%d otrzymał sygnał!\n", id);
+			}
+		} while (1);
+        pthread_mutex_unlock(&mutex);
+		printf("Client is having a haircut, client id: %d\n", id);
+
     }
 
 	return NULL;
@@ -178,15 +170,17 @@ int main(int argc, char* argv[])
 			}
 	}
 
-	/* wysyłanie sygnałów */
-    while(1)
-    {
-        sleep(1);
-    	puts("pthread_cond_broadcast - rozgłaszanie");
-    	pthread_cond_broadcast(&chairAvailable);
-    	sleep(1);
-    }
+
+	sleep(1);
+	puts("pthread_cond_broadcast - rozgłaszanie");
+	pthread_cond_broadcast(&chairAvailable);
+
+	sleep(1);
+
 	/* kończymy proces, bez oglądania się na wątki */
-	puts("koniec programu");
-	return EXIT_SUCCESS;
+    for(int j=0;j<totalClientsCount;j++)
+    {
+      pthread_join(clientID[j], NULL);
+    }
+    exit(EXIT_SUCCESS);
 }

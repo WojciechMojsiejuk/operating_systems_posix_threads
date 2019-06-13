@@ -22,13 +22,13 @@ int last(struct Queue *q)
   {
   	return q->last->id;
   }
-  return NULL;
+  return -1;
 }
 
 void pop(struct Queue *q) {
 	q->size--;
 
-	struct Node *tmp = q->front;
+	struct Client *tmp = q->front;
 	q->front = q->front->next;
 	free(tmp);
 }
