@@ -54,12 +54,19 @@ void* Client(void* numer) {
     }
     else
     {
+        if(debug)
+            printf("Client found empty seat, clent id: %d\n", id);
     	while (1) {
     		pthread_mutex_lock(&mutex);
+            printf("1");
     		do {
                 pthread_mutex_lock(&accessWaitingQueue);
-    			if (id==front(&waitingQueue) && front(&waitingQueue) != NULL )
+                printf("2");
+    			if (id==front(&waitingQueue) && front(&waitingQueue) != -1 )
                 {
+                    printf("3");
+
+                    pthread_mutex_unlock(&mutex);
                     if(debug)
             			printf("Client leaving queue, clent id: %d\n", id);
                     if(debug)
@@ -77,6 +84,7 @@ void* Client(void* numer) {
                     break;
                 }
     			else {
+                    pthread_mutex_unlock(&accessWaitingQueue);
                     if(debug)
             			printf("Client joining queue, clent id: %d\n", id);
             		//Something changed -> print full message here
@@ -90,7 +98,6 @@ void* Client(void* numer) {
     				printf("\t... wątek #%d otrzymał sygnał!\n", id);
     			}
     		} while (1);
-    		pthread_mutex_unlock(&mutex);
     		/* ... */
     	}
     }
