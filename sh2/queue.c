@@ -8,15 +8,15 @@ void init(struct Queue *q) {
 	q->size = 0;
 }
 
-char* front(struct Queue *q) {
+int front(struct Queue *q) {
   if(q->front != NULL)
   {
   	return q->front->id;
   }
-  return NULL;
+  return -1;
 }
 
-char* last(struct Queue *q)
+int last(struct Queue *q)
 {
   if(q->last != NULL)
   {

@@ -37,6 +37,8 @@ void* Client(void* numer) {
     //sprawdzamy kolejkę
 	pthread_mutex_lock(&accessWaitingQueue);
 
+    if(debug)
+        printf("Client %d checks if chairs are available\n", id);
 	//Nie ma wolnych krzeseł - rezygnujemy
 	if(current_queue_size(&waitingQueue) >= totalChairs)
 	{
@@ -55,14 +57,33 @@ void* Client(void* numer) {
     	while (1) {
     		pthread_mutex_lock(&mutex);
     		do {
-    			if (warunek)
-    				break;
+                pthread_mutex_lock(&accessWaitingQueue);
+    			if (id==front(&waitingQueue) && front(&waitingQueue) != NULL )
+                {
+                    if(debug)
+            			printf("Client leaving queue, clent id: %d\n", id);
+                    if(debug)
+            			printf("Queue front before: %d\n", front(&waitingQueue));
+                    if(debug)
+            			printf("Waiting clients count before: %d\n", current_queue_size(&waitingQueue));
+            		//Something changed -> print full message here
+            		pop(&waitingQueue);
+                    if(debug)
+            			printf("Queue front after: %d\n", front(&waitingQueue));
+                    pthread_mutex_unlock(&accessWaitingQueue);
+                    if(debug)
+            			printf("Waiting clients count: %d\n", current_queue_size(&waitingQueue));
+            		pthread_mutex_unlock(&accessWaitingQueue);
+                    break;
+                }
     			else {
                     if(debug)
             			printf("Client joining queue, clent id: %d\n", id);
             		//Something changed -> print full message here
             		pthread_mutex_lock(&accessWaitingQueue);
             		push(&waitingQueue, id);
+                    if(debug)
+            			printf("Waiting clients count: %d\n", current_queue_size(&waitingQueue));
             		pthread_mutex_unlock(&accessWaitingQueue);
     				printf("\twątek #%d oczekuje na sygnał...\n", id);
     				pthread_cond_wait(&chairAvailable, &mutex);
@@ -151,17 +172,13 @@ int main(int argc, char* argv[])
 	}
 
 	/* wysyłanie sygnałów */
-
-	sleep(1);
-	puts("pthread_cond_signal - sygnalizacja");
-	pthread_cond_signal(&chairAvailable);
-
-	sleep(1);
-	puts("pthread_cond_broadcast - rozgłaszanie");
-	pthread_cond_broadcast(&chairAvailable);
-
-	sleep(1);
-
+    while(1)
+    {
+        sleep(1);
+    	puts("pthread_cond_broadcast - rozgłaszanie");
+    	pthread_cond_broadcast(&chairAvailable);
+    	sleep(1);
+    }
 	/* kończymy proces, bez oglądania się na wątki */
 	puts("koniec programu");
 	return EXIT_SUCCESS;
