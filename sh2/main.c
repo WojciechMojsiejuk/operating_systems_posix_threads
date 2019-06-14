@@ -154,7 +154,7 @@ void* Client(void* numer) {
 		printf("Client is having a haircut, client id: %d\n", id);
         pthread_mutex_lock(&customer_haircut_mutex);
         pthread_cond_wait(&haircutDone, &customer_haircut_mutex);
-        pthread_mutex_lock(&customer_haircut_mutex);
+        pthread_mutex_unlock(&customer_haircut_mutex);
         printf("Client leaving barbershop, client id: %d\n", id);
     }
 
