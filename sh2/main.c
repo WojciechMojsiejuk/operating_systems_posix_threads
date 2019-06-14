@@ -47,21 +47,24 @@ void* Barber()
 		//Ktoś jest w kolejce
         while (1)
         {
-            pthread_mutex_unlock(&accessWaitingQueue);
-            printf("\tFryzjer idzie na zasłużony odpoczynek...\n");
-            barberSleeping = 1;
-            pthread_cond_wait(&customerReady, &barberMutex);
-            barberSleeping = 0;
-            printf("\tFryzjer został zbudzony!\n");
-			if(current_queue_size(&waitingQueue) > 0)
+            if(current_queue_size(&waitingQueue) > 0)
             {
                 pthread_mutex_unlock(&accessWaitingQueue);
                 break;
             }
+            else
+            {
+                pthread_mutex_unlock(&accessWaitingQueue);
+                printf("\tFryzjer idzie na zasłużony odpoczynek...\n");
+                barberSleeping = 1;
+                pthread_cond_wait(&customerReady, &barberMutex);
+                barberSleeping = 0;
+                printf("\tFryzjer został zbudzony!\n");
+            }
 		}
         pthread_mutex_unlock(&barberMutex);
         sleep(1);
-    	puts("pthread_cond_broadcast - rozgłaszanie");
+    	printf("pthread_cond_broadcast - rozgłaszanie");
     	pthread_cond_broadcast(&chairAvailable);
     	sleep(1);
 		// pthread_mutex_lock(&hairdressersChairTaken);
@@ -102,16 +105,6 @@ void* Client(void* numer) {
     }
     else
     {
-        //jeżeli jest pierwszym klientem w kolejce to budzi fryzjera
-        // if (current_queue_size(&waitingQueue)==0)
-        // {
-        do
-        {
-            pthread_cond_signal(&customerReady);
-        }while(barberSleeping);
-        // }
-
-
         //klient staje w kolejce i czeka na swoje miejsce
         if(debug)
             printf("Client joining queue, clent id: %d\n", id);
@@ -121,7 +114,14 @@ void* Client(void* numer) {
         if(debug)
             printf("Waiting clients count: %d\n", current_queue_size(&waitingQueue));
         pthread_mutex_unlock(&accessWaitingQueue);
-
+        //jeżeli jest pierwszym klientem w kolejce to budzi fryzjera
+        // if (current_queue_size(&waitingQueue)==0)
+        // {
+        do
+        {
+            pthread_cond_signal(&customerReady);
+        }while(barberSleeping);
+        // }
 		pthread_mutex_lock(&mutex);
 		do {
             pthread_mutex_lock(&accessWaitingQueue);
