@@ -67,6 +67,7 @@ int debug = 0;
 int N;
 //total clients count
 int totalClientsCount;
+pthread_mutex_t accessTotalClientsCount;
 
 //If hairdresser chair is taken (1) or not (0)
 //??
@@ -105,7 +106,6 @@ void waiting(int sec)
    		usleep(zzz);
 }
 
-// TO DO: rename to client
 void* Client(void* arg)
 {
   int id;
@@ -133,6 +133,10 @@ void* Client(void* arg)
 			exit(EXIT_FAILURE);
 		}
 		push(&resignedQueue, id);
+
+		pthread_mutex_lock(&accessTotalClientsCount);
+		--totalClientsCount;
+		pthread_mutex_unlock(&accessTotalClientsCount);
 		//Something changed -> print full message here
 		//pthread_mutex_lock(&accessWaitingQueue);	
 		pthread_mutex_lock(&hairdressersChairTaken);
@@ -246,7 +250,12 @@ void* Barber()
 			waiting(9);
 			if(debug >= 2)
 				printf("Barber: finished cutting %d\n", currentlyCutId);
-			//Nikt nie jest teraz strzyzony
+			//Skonczono strzyzenie
+			//Zmniejsz liczbe klientow
+			pthread_mutex_lock(&accessTotalClientsCount);
+			--totalClientsCount;
+			pthread_mutex_unlock(&accessTotalClientsCount);
+			//Nikt nie jest teraz strzyzony - ustaw id na -1
 			pthread_mutex_lock(&hairdressersChairTaken);
 			currentlyCutId = -1;
 			pthread_mutex_unlock(&hairdressersChairTaken);
@@ -257,11 +266,20 @@ void* Barber()
         pthread_mutex_unlock(&accessWaitingQueue);
         sem_wait(&customerReadyToBeCut);
     }
+		//Nie bedzie juz wiecej klientow
+		pthread_mutex_lock(&accessTotalClientsCount);
+		if(totalClientsCount == 0)
+		{
+			printf("Barber is going home\n");
+			pthread_mutex_unlock(&accessTotalClientsCount);
+			break;
+		}
+		pthread_mutex_unlock(&accessTotalClientsCount);
 	}
   return 0;
 }
 
-//Parameters: total chairs, total clients, optional: -debug
+//Parameters: total chairs, total clients, optional: -debug/-debug2
 int main(int argc, char* argv[])
 {
     //Invalid parameter count - end program
@@ -306,6 +324,7 @@ int main(int argc, char* argv[])
 		pthread_mutex_init(&hairdressersChairTaken, &attribute);
 		pthread_mutex_init(&accessResignedQueue, &attribute);
 		pthread_mutex_init(&accessWaitingQueue, &attribute);
+		pthread_mutex_init(&accessTotalClientsCount, &attribute);
 		
 		//Init semaphores
     if(debug >= 2)
@@ -355,7 +374,8 @@ int main(int argc, char* argv[])
 			return 10;
 		}
     srand((unsigned)time(NULL));
-    for(int j=0;j<totalClientsCount;j++)
+		int mainClientCount = totalClientsCount;
+    for(int j=0;j<mainClientCount;j++)
     {
         //clients show up to the hairdresser
         waiting(3);
@@ -368,9 +388,10 @@ int main(int argc, char* argv[])
 				return 11;
 			}
     }
-    for(int j=0;j<totalClientsCount;j++)
+    for(int j=0;j<mainClientCount;j++)
     {
       pthread_join(clientID[j], NULL);
     }
+		pthread_join(barberID,NULL);
     exit(EXIT_SUCCESS);
 }
