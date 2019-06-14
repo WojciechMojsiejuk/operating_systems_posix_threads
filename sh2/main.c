@@ -83,10 +83,11 @@ void* Barber(void* arg)
     		}
     	}
     pthread_mutex_lock(&accessWaitingQueue);
-    printf("Barber: haircutting customer, cliend id: %d", front(&waitingQueue));
+    printf("Barber: haircutting customer, cliend id: %d\n", front(&waitingQueue));
     pop(&waitingQueue);
     pthread_mutex_unlock(&accessWaitingQueue);
     //barber skończył strzyc klienta
+	printf("Barber: haircut done\n");
     pthread_cond_broadcast(&haircutDone);
     }
     return 0;
@@ -147,6 +148,7 @@ void* Client(void* numer) {
 				pthread_cond_broadcast(&customerReady);
                 break;
             }
+			pthread_mutex_unlock(&accessWaitingQueue);
 		} while (1);
         pthread_mutex_unlock(&customer_waiting_mutex);
 		printf("Client is having a haircut, client id: %d\n", id);
