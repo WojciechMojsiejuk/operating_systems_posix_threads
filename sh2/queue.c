@@ -13,22 +13,22 @@ int front(struct Queue *q) {
   {
   	return q->front->id;
   }
-  return NULL;
+  return -1;
 }
 
-char* last(struct Queue *q)
+int last(struct Queue *q)
 {
   if(q->last != NULL)
   {
   	return q->last->id;
   }
-  return NULL;
+  return -1;
 }
 
 void pop(struct Queue *q) {
 	q->size--;
 
-	struct Node *tmp = q->front;
+	struct Client *tmp = q->front;
 	q->front = q->front->next;
 	free(tmp);
 }
@@ -49,15 +49,15 @@ void push(struct Queue *q, int id) {
 	}
 }
 
-// void print_queue(struct Queue *q)
-// {
-//   struct Client *temp = q->front;
-//   while(temp !=NULL)
-//   {
-//       printf("%s\n",temp->id);
-//       temp=temp->next;
-//   }
-// }
+void print_queue(struct Queue *q)
+{
+  struct Client *temp = q->front;
+  while(temp !=NULL)
+  {
+      printf("%d, ",temp->id);
+      temp=temp->next;
+  }
+}
 
 int current_queue_size(struct Queue *q)
 {
