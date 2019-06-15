@@ -9,6 +9,7 @@
 #include <time.h>
 #include "queue.h"
 
+#define MAX_TIMED_WAIT 10
 #define ENABLE_SLEEP 0
 
 //1 - debug mode level 1
@@ -73,7 +74,7 @@ void* Barber(void* arg)
                 //barber woła następnego klienta
                 if (debug >= 2)
                     printf("Barber: Next client!\n");
-
+				//Przed broadcast powinien byc lock wg mnie
                 pthread_cond_broadcast(&chairAvailable);
                 //barber czeka aż pojawi się klient
 				pthread_mutex_unlock(&accessWaitingQueue);
@@ -83,7 +84,20 @@ void* Barber(void* arg)
 					fprintf(stderr, "Barber: barber_mutex [1] could not be locked\n");
 					exit(EXIT_FAILURE);
 				}
-                pthread_cond_wait(&customerReady, &barber_mutex);
+				struct timespec maxWait = {0, 0};
+				const int getTime = clock_gettime(CLOCK_REALTIME, &maxWait);
+				if (getTime)
+				{
+					fprintf(stderr, "Could not get system time\n");
+					exit(EXIT_FAILURE);
+				}
+				maxWait.tv_sec += MAX_TIMED_WAIT;
+				int timedWait = pthread_cond_timedwait(&customerReady, &barber_mutex, &maxWait);
+				if(timedWait)
+				{
+					fprintf(stderr, "Barber: customerReady cond waiting too long\n");
+					exit(EXIT_FAILURE);
+				}
                 break;
     		}
     		//Nie ma - ucinamy drzemke
@@ -98,7 +112,21 @@ void* Barber(void* arg)
                 if (debug >= 2)
                     printf("Barber: Queue empty! Going to sleep...\n");
 				pthread_mutex_unlock(&accessWaitingQueue);
-				pthread_cond_wait(&customerShowedUp, &barber_napping_mutex);
+
+				struct timespec maxWait = {0, 0};
+				const int getTime = clock_gettime(CLOCK_REALTIME, &maxWait);
+				if (getTime)
+				{
+					fprintf(stderr, "Could not get system time\n");
+					exit(EXIT_FAILURE);
+				}
+				maxWait.tv_sec += MAX_TIMED_WAIT;
+				int timedWait = pthread_cond_timedwait(&customerShowedUp, &barber_napping_mutex, &maxWait);
+				if(timedWait)
+				{
+					fprintf(stderr, "Barber: customerShowedUp cond waiting too long\n");
+					exit(EXIT_FAILURE);
+				}
 				if (debug >= 2)
     				printf("Barber: waking up\n");
 				pthread_mutex_unlock(&barber_napping_mutex);
@@ -131,6 +159,7 @@ void* Barber(void* arg)
 	if (debug >= 2)
 		printf("Barber: haircut done\n");
 	pthread_mutex_unlock(&barber_mutex);
+	//Przed broadcast lock imo
     pthread_cond_broadcast(&haircutDone);
 
     }
@@ -160,6 +189,8 @@ void* Client(void* numer) {
 
 		//Add client that resigned to resigned queue
 		//Something changed - we should print message here
+		//Nie bylo tu locka!
+		pthread_mutex_lock(&accessResignedQueue);
         push(&resignedQueue, id);
 		if(debug)
 		{
@@ -197,6 +228,7 @@ void* Client(void* numer) {
         	printf("Waiting clients count: %d\n", current_queue_size(&waitingQueue));
         //klient wchodzi do sklepu, uruchamia się pozytywka przy drzwiach,
         // ktora budzi fryzjera
+		//Lock przed broadcast?
         pthread_cond_broadcast(&customerShowedUp);
         //Something changed -> print full message here
         // pthread_mutex_lock(&accessWaitingQueue);
@@ -211,7 +243,20 @@ void* Client(void* numer) {
 			if(debug >= 2)
             	printf("\twątek #%d oczekuje na sygnał...\n", id);
 			pthread_mutex_unlock(&accessWaitingQueue);
-            pthread_cond_wait(&chairAvailable, &customer_waiting_mutex);
+			struct timespec maxWait = {0, 0};
+			const int getTime = clock_gettime(CLOCK_REALTIME, &maxWait);
+			if (getTime)
+			{
+				fprintf(stderr, "Could not get system time\n");
+				exit(EXIT_FAILURE);
+			}
+			maxWait.tv_sec += MAX_TIMED_WAIT;
+            const int timedWait = pthread_cond_timedwait(&chairAvailable, &customer_waiting_mutex, &maxWait);
+			if(timedWait)
+			{
+				fprintf(stderr, "Client: chairAvailable cond waiting too long\n");
+				exit(EXIT_FAILURE);
+			}
 			if (debug >= 2)
             	printf("\t... wątek #%d otrzymał sygnał!\n", id);
 			mutexCode = pthread_mutex_lock(&accessWaitingQueue);
@@ -243,7 +288,20 @@ void* Client(void* numer) {
 		}
 		if (debug >= 2)
 			printf("Client is having a haircut, client id: %d\n", id);
-        pthread_cond_wait(&haircutDone, &customer_haircut_mutex);
+		struct timespec maxWait = {0, 0};
+		const int getTime = clock_gettime(CLOCK_REALTIME, &maxWait);
+		if (getTime)
+		{
+			fprintf(stderr, "Could not get system time\n");
+			exit(EXIT_FAILURE);
+		}
+		maxWait.tv_sec += MAX_TIMED_WAIT;
+        const int timedWait = pthread_cond_timedwait(&haircutDone, &customer_haircut_mutex, &maxWait);
+		if(timedWait)
+		{
+			fprintf(stderr, "Client: haircutDone cond waiting too long\n");
+			exit(EXIT_FAILURE);
+		}
 		if (debug >= 2)
         	printf("Client leaving barbershop, client id: %d\n", id);
 		pthread_mutex_unlock(&customer_haircut_mutex);
