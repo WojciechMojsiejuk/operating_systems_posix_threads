@@ -11,7 +11,8 @@
 
 #define ENABLE_SLEEP 0
 
-//1 - running in debug mode
+//1 - debug mode level 1
+//2 - debug mode level 2
 int debug = 0;
 //total chairs
 int totalChairs;
@@ -43,7 +44,7 @@ pthread_cond_t	customerShowedUp	= PTHREAD_COND_INITIALIZER;
 
 void* Barber(void* arg)
 {
-	if (debug)
+	if (debug >= 2)
 		printf("Created barber\n");
     while(1)
     {
@@ -51,20 +52,20 @@ void* Barber(void* arg)
     	while(1)
     	{
 			pthread_mutex_lock(&accessWaitingQueue);
-            if (debug)
-                printf("Barber: Checking queue...!\n");
+			if (debug >= 2)
+		        printf("Barber: Checking queue...!\n");
 			//Sprawdz raz kolejke
 
     		//Jest ktoś
     		if(current_queue_size(&waitingQueue) > 0)
     		{
 
-                if (debug)
+                if (debug >= 2)
                     printf("Barber: Queue not empty! Preparing chair...\n");
                 //barber przygotowuje miejsce do strzyzenia
                 //TO DO: sleep
                 //barber woła następnego klienta
-                if (debug)
+                if (debug >= 2)
                     printf("Barber: Next client!\n");
 
                 pthread_cond_broadcast(&chairAvailable);
@@ -78,16 +79,20 @@ void* Barber(void* arg)
     		else
     		{
 				pthread_mutex_lock(&barber_napping_mutex);
-                if (debug)
+                if (debug >= 2)
                     printf("Barber: Queue empty! Going to sleep...\n");
 				pthread_mutex_unlock(&accessWaitingQueue);
 				pthread_cond_wait(&customerShowedUp, &barber_napping_mutex);
-    			printf("Barber: waking up\n");
+				if (debug >= 2)
+    				printf("Barber: waking up\n");
 				pthread_mutex_unlock(&barber_napping_mutex);
     		}
     	}
     pthread_mutex_lock(&accessWaitingQueue);
-    printf("Barber: haircutting customer, cliend id: %d\n", front(&waitingQueue));
+	//Fryzjer zaprosil kogos z kolejki [pop(&waitingQueue)]
+	//Wypisac pelny komunikat
+	if (debug >=2)
+    	printf("Barber: haircutting customer, cliend id: %d\n", front(&waitingQueue));
     pop(&waitingQueue);
 	if(debug)
 	{
@@ -100,9 +105,11 @@ void* Barber(void* arg)
 	}
 	pthread_mutex_unlock(&accessWaitingQueue);
     //barber skończył strzyc klienta
-	printf("Barber: haircut done\n");
+	//Skonczyl strzyc -> zmieniamy currentlyCutId na -1?
+	//I wypisujemy pelny komunikat
+	if (debug >= 2)
+		printf("Barber: haircut done\n");
 	pthread_mutex_unlock(&barber_mutex);
-
     pthread_cond_broadcast(&haircutDone);
 
     }
@@ -112,12 +119,11 @@ void* Barber(void* arg)
 void* Client(void* numer) {
     int id;
     id = *((int *) numer);
-	if(debug)
-		printf("\t(debug) Start thread #%d\n", id);
-
+	if(debug >= 2)
+		printf("\tStarted client thread #%d\n", id);\
 	pthread_mutex_lock(&accessWaitingQueue);
-    if(debug)
-        printf("Client %d checks if chairs are available\n", id);
+  	if(debug >= 2)
+	  	printf("Client %d checks if chairs are available\n", id);
 	//sprawdzamy kolejkę
 
 	//Nie ma wolnych krzeseł - rezygnujemy
@@ -125,6 +131,7 @@ void* Client(void* numer) {
 	{
 
 		//Add client that resigned to resigned queue
+		//Something changed - we should print message here
         push(&resignedQueue, id);
 		if(debug)
 		{
@@ -135,9 +142,9 @@ void* Client(void* numer) {
 			print_queue(&waitingQueue);
 			printf("\n");
 		}
-        if(debug)
+        if(debug >= 2)
 			printf("Resigned count: %d\n", current_queue_size(&resignedQueue));
-		if(debug)
+		if(debug >= 2)
 			printf("Client %d resigned\n", id);
 		pthread_mutex_unlock(&accessResignedQueue);
 		pthread_mutex_unlock(&accessWaitingQueue);
@@ -145,8 +152,9 @@ void* Client(void* numer) {
     }
     else
     {
-        if(debug)
+        if(debug >= 2)
             printf("Client joining queue, clent id: %d\n", id);
+		//Something changed, we should print message here
         push(&waitingQueue, id);
 		if(debug)
 		{
@@ -157,7 +165,7 @@ void* Client(void* numer) {
 			print_queue(&waitingQueue);
 			printf("\n");
 		}
-        if(debug)
+        if(debug >= 2)
         	printf("Waiting clients count: %d\n", current_queue_size(&waitingQueue));
         //klient wchodzi do sklepu, uruchamia się pozytywka przy drzwiach,
         // ktora budzi fryzjera
@@ -167,18 +175,20 @@ void* Client(void* numer) {
         //klient staje w kolejce i czeka na zawolanie
 		pthread_mutex_lock(&customer_waiting_mutex);
 		do {
-            printf("\twątek #%d oczekuje na sygnał...\n", id);
+			if(debug >= 2)
+            	printf("\twątek #%d oczekuje na sygnał...\n", id);
 			pthread_mutex_unlock(&accessWaitingQueue);
             pthread_cond_wait(&chairAvailable, &customer_waiting_mutex);
-            printf("\t... wątek #%d otrzymał sygnał!\n", id);
+			if (debug >= 2)
+            	printf("\t... wątek #%d otrzymał sygnał!\n", id);
 			pthread_mutex_lock(&accessWaitingQueue);
 			if (id==front(&waitingQueue) && front(&waitingQueue) != -1 )
             {
-                if(debug)
+                if(debug >= 2)
         			printf("Client leaving queue, clent id: %d\n", id);
-                if(debug)
+                if(debug >= 2)
         			printf("Queue front before: %d\n", front(&waitingQueue));
-                if(debug)
+                if(debug >= 2)
         			printf("Waiting clients count before: %d\n", current_queue_size(&waitingQueue));
                 pthread_mutex_unlock(&accessWaitingQueue);
 				pthread_cond_broadcast(&customerReady);
@@ -188,9 +198,11 @@ void* Client(void* numer) {
 		} while (1);
         pthread_mutex_unlock(&customer_waiting_mutex);
 		pthread_mutex_lock(&customer_haircut_mutex);
-		printf("Client is having a haircut, client id: %d\n", id);
+		if (debug >= 2)
+			printf("Client is having a haircut, client id: %d\n", id);
         pthread_cond_wait(&haircutDone, &customer_haircut_mutex);
-        printf("Client leaving barbershop, client id: %d\n", id);
+		if (debug >= 2)
+        	printf("Client leaving barbershop, client id: %d\n", id);
 		pthread_mutex_unlock(&customer_haircut_mutex);
 		pthread_mutex_unlock(&customer_waiting_mutex);
     }
@@ -207,13 +219,20 @@ int main(int argc, char* argv[])
         fprintf(stderr, "Invalid parameter count\n");
         return 1;
     }
-    //Enable debug
+    //Enable debug level 1
     if(argc == 4 && strcmp(argv[3],"-debug")==0)
     {
         debug = 1;
     }
-    if(debug)
-        printf("Debug mode enabled\n");
+		//Or debug level 2
+		else if(argc == 4 && strcmp(argv[3],"-debug2")==0)
+		{
+			debug = 2;
+		}
+    if(debug == 1)
+      printf("Debug level 1 enabled\n");
+		else if(debug == 2)
+			printf("Debug level 2 enabled\n");
     //Set all chairs count
         totalChairs = atoi(argv[1]);
     if(totalChairs <= 0)
@@ -229,11 +248,11 @@ int main(int argc, char* argv[])
       return 3;
     }
 
-    if(debug)
+    if(debug >= 2)
         printf("(debug) N chairs = %d\n",totalChairs);
 
     //Init queues
-    if(debug)
+    if(debug >= 2)
         printf("(debug) Initialize queues\n");
     init(&waitingQueue);
 	init(&resignedQueue);
@@ -258,11 +277,8 @@ int main(int argc, char* argv[])
 			fprintf(stderr, "Could not allocate memory\n");
 			return 10;
 		}
-
-
-
-
-	printf("(debug) Program begins\n");
+		if(debug >= 2)
+			printf("(debug) Program begins\n");
     int j;
 	/* utworzenie wątków */
 	for (j=0; j < totalClientsCount; j++) {
