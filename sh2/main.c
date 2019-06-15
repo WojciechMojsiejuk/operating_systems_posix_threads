@@ -106,6 +106,7 @@ void* Client(void* numer) {
 	//Nie ma wolnych krzeseł - rezygnujemy
 	if(current_queue_size(&waitingQueue) >= totalChairs)
 	{
+		pthread_mutex_unlock(&accessWaitingQueue);
 		//Add client that resigned to resigned queue
         push(&resignedQueue, id);
         if(debug)
