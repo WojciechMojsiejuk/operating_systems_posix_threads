@@ -74,10 +74,10 @@ void* Barber(void* arg)
     		//Nie ma - ucinamy drzemke
     		else
     		{
-    			pthread_mutex_unlock(&accessWaitingQueue);
                 if (debug)
                     printf("Barber: Queue empty! Going to sleep...\n");
     			pthread_mutex_lock(&barber_napping_mutex);
+				pthread_mutex_unlock(&accessWaitingQueue);
 				pthread_cond_wait(&customerShowedUp, &barber_napping_mutex);
     			pthread_mutex_unlock(&barber_napping_mutex);
     			printf("Barber: waking up\n");
@@ -88,8 +88,8 @@ void* Barber(void* arg)
     pop(&waitingQueue);
     //barber skończył strzyc klienta
 	printf("Barber: haircut done\n");
-	pthread_mutex_unlock(&accessWaitingQueue);
     pthread_cond_broadcast(&haircutDone);
+	pthread_mutex_unlock(&accessWaitingQueue);
     }
     return 0;
 }
@@ -106,9 +106,7 @@ void* Client(void* numer) {
 	//Nie ma wolnych krzeseł - rezygnujemy
 	if(current_queue_size(&waitingQueue) >= totalChairs)
 	{
-		pthread_mutex_unlock(&accessWaitingQueue);
 		//Add client that resigned to resigned queue
-		pthread_mutex_lock(&accessResignedQueue);
         push(&resignedQueue, id);
         if(debug)
 			printf("Resigned count: %d\n", current_queue_size(&resignedQueue));
@@ -150,14 +148,15 @@ void* Client(void* numer) {
                 break;
             }
 			pthread_mutex_unlock(&accessWaitingQueue);
-			pthread_mutex_unlock(&customer_waiting_mutex);
+
 		} while (1);
         pthread_mutex_unlock(&customer_waiting_mutex);
+		pthread_mutex_lock(&customer_haircut_mutex);
 		printf("Client is having a haircut, client id: %d\n", id);
-        pthread_mutex_lock(&customer_haircut_mutex);
         pthread_cond_wait(&haircutDone, &customer_haircut_mutex);
-        pthread_mutex_unlock(&customer_haircut_mutex);
         printf("Client leaving barbershop, client id: %d\n", id);
+		pthread_mutex_unlock(&customer_haircut_mutex);
+		pthread_mutex_unlock(&customer_waiting_mutex);
     }
 
 	return NULL;
