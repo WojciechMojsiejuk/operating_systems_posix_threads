@@ -68,6 +68,7 @@ void* Barber(void* arg)
 				pthread_mutex_unlock(&accessWaitingQueue);
                 pthread_cond_broadcast(&chairAvailable);
                 //barber czeka aż pojawi się klient
+				pthread_mutex_lock(&barber_mutex);
                 pthread_cond_wait(&customerReady, &barber_mutex);
                 break;
     		}
@@ -86,9 +87,19 @@ void* Barber(void* arg)
     pthread_mutex_lock(&accessWaitingQueue);
     printf("Barber: haircutting customer, cliend id: %d\n", front(&waitingQueue));
     pop(&waitingQueue);
+	if(debug)
+	{
+		printf("Resigned: ");
+		print_queue(&resignedQueue);
+		printf("\n");
+		printf("In queue: ");
+		print_queue(&waitingQueue);
+		printf("\n");
+	}
     //barber skończył strzyc klienta
 	printf("Barber: haircut done\n");
     pthread_cond_broadcast(&haircutDone);
+	pthread_mutex_lock(&barber_mutex);
 	pthread_mutex_unlock(&accessWaitingQueue);
     }
     return 0;
@@ -109,6 +120,15 @@ void* Client(void* numer) {
 		pthread_mutex_unlock(&accessWaitingQueue);
 		//Add client that resigned to resigned queue
         push(&resignedQueue, id);
+		if(debug)
+		{
+			printf("Resigned: ");
+			print_queue(&resignedQueue);
+			printf("\n");
+			printf("In queue: ");
+			print_queue(&waitingQueue);
+			printf("\n");
+		}
         if(debug)
 			printf("Resigned count: %d\n", current_queue_size(&resignedQueue));
 		if(debug)
@@ -121,6 +141,15 @@ void* Client(void* numer) {
         if(debug)
             printf("Client joining queue, clent id: %d\n", id);
         push(&waitingQueue, id);
+		if(debug)
+		{
+			printf("Resigned: ");
+			print_queue(&resignedQueue);
+			printf("\n");
+			printf("In queue: ");
+			print_queue(&waitingQueue);
+			printf("\n");
+		}
         if(debug)
         	printf("Waiting clients count: %d\n", current_queue_size(&waitingQueue));
         //klient wchodzi do sklepu, uruchamia się pozytywka przy drzwiach,
