@@ -46,12 +46,18 @@ void* Barber(void* arg)
 {
 	if (debug >= 2)
 		printf("Created barber\n");
+	int mutexCode;
     while(1)
     {
     	//Obsłużenie jednego klienta
     	while(1)
     	{
-			pthread_mutex_lock(&accessWaitingQueue);
+			mutexCode = pthread_mutex_lock(&accessWaitingQueue);
+			if(mutexCode)
+			{
+				fprintf(stderr, "Barber: accessWaitingQueue [1] could not be locked\n");
+				exit(EXIT_FAILURE);
+			}
 			if (debug >= 2)
 		        printf("Barber: Checking queue...!\n");
 			//Sprawdz raz kolejke
@@ -71,14 +77,24 @@ void* Barber(void* arg)
                 pthread_cond_broadcast(&chairAvailable);
                 //barber czeka aż pojawi się klient
 				pthread_mutex_unlock(&accessWaitingQueue);
-				pthread_mutex_lock(&barber_mutex);
+				mutexCode = pthread_mutex_lock(&barber_mutex);
+				if(mutexCode)
+				{
+					fprintf(stderr, "Barber: barber_mutex [1] could not be locked\n");
+					exit(EXIT_FAILURE);
+				}
                 pthread_cond_wait(&customerReady, &barber_mutex);
                 break;
     		}
     		//Nie ma - ucinamy drzemke
     		else
     		{
-				pthread_mutex_lock(&barber_napping_mutex);
+				mutexCode = pthread_mutex_lock(&barber_napping_mutex);
+				if(mutexCode)
+				{
+					fprintf(stderr, "Barber: barber_napping_mutex [1] could not be locked\n");
+					exit(EXIT_FAILURE);
+				}
                 if (debug >= 2)
                     printf("Barber: Queue empty! Going to sleep...\n");
 				pthread_mutex_unlock(&accessWaitingQueue);
@@ -88,7 +104,12 @@ void* Barber(void* arg)
 				pthread_mutex_unlock(&barber_napping_mutex);
     		}
     	}
-    pthread_mutex_lock(&accessWaitingQueue);
+    mutexCode = pthread_mutex_lock(&accessWaitingQueue);
+	if(mutexCode)
+	{
+		fprintf(stderr, "Barber: accessWaitingQueue [2] could not be locked\n");
+		exit(EXIT_FAILURE);
+	}
 	//Fryzjer zaprosil kogos z kolejki [pop(&waitingQueue)]
 	//Wypisac pelny komunikat
 	if (debug >=2)
@@ -120,8 +141,15 @@ void* Client(void* numer) {
     int id;
     id = *((int *) numer);
 	if(debug >= 2)
-		printf("\tStarted client thread #%d\n", id);\
-	pthread_mutex_lock(&accessWaitingQueue);
+		printf("\tStarted client thread #%d\n", id);
+	//Error code return from pthread_mutex_lock
+	int mutexCode;
+	mutexCode = pthread_mutex_lock(&accessWaitingQueue);
+	if(mutexCode)
+	{
+		fprintf(stderr, "Client: accessWaitingQueue [1] could not be locked\n");
+		exit(EXIT_FAILURE);
+	}
   	if(debug >= 2)
 	  	printf("Client %d checks if chairs are available\n", id);
 	//sprawdzamy kolejkę
@@ -173,7 +201,12 @@ void* Client(void* numer) {
         //Something changed -> print full message here
         // pthread_mutex_lock(&accessWaitingQueue);
         //klient staje w kolejce i czeka na zawolanie
-		pthread_mutex_lock(&customer_waiting_mutex);
+		mutexCode = pthread_mutex_lock(&customer_waiting_mutex);
+		if(mutexCode)
+		{
+			fprintf(stderr, "Client: customer_waiting_mutex [1] could not be locked\n");
+			exit(EXIT_FAILURE);
+		}
 		do {
 			if(debug >= 2)
             	printf("\twątek #%d oczekuje na sygnał...\n", id);
@@ -181,7 +214,12 @@ void* Client(void* numer) {
             pthread_cond_wait(&chairAvailable, &customer_waiting_mutex);
 			if (debug >= 2)
             	printf("\t... wątek #%d otrzymał sygnał!\n", id);
-			pthread_mutex_lock(&accessWaitingQueue);
+			mutexCode = pthread_mutex_lock(&accessWaitingQueue);
+			if(mutexCode)
+			{
+				fprintf(stderr, "Client: accessWaitingQueue [2] could not be locked\n");
+				exit(EXIT_FAILURE);
+			}
 			if (id==front(&waitingQueue) && front(&waitingQueue) != -1 )
             {
                 if(debug >= 2)
@@ -197,7 +235,12 @@ void* Client(void* numer) {
 			pthread_mutex_unlock(&accessWaitingQueue);
 		} while (1);
         pthread_mutex_unlock(&customer_waiting_mutex);
-		pthread_mutex_lock(&customer_haircut_mutex);
+		mutexCode = pthread_mutex_lock(&customer_haircut_mutex);
+		if(mutexCode)
+		{
+			fprintf(stderr, "Client: customer_haircut_mutex [1] could not be locked\n");
+			exit(EXIT_FAILURE);
+		}
 		if (debug >= 2)
 			printf("Client is having a haircut, client id: %d\n", id);
         pthread_cond_wait(&haircutDone, &customer_haircut_mutex);
