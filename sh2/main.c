@@ -57,7 +57,7 @@ void* Barber(void* arg)
     		//Jest ktoś
     		if(current_queue_size(&waitingQueue) > 0)
     		{
-                pthread_mutex_unlock(&accessWaitingQueue);
+
                 if (debug)
                     printf("Barber: Queue not empty! Preparing chair...\n");
                 //barber przygotowuje miejsce do strzyzenia
@@ -65,6 +65,7 @@ void* Barber(void* arg)
                 //barber woła następnego klienta
                 if (debug)
                     printf("Barber: Next client!\n");
+				pthread_mutex_unlock(&accessWaitingQueue);
                 pthread_cond_broadcast(&chairAvailable);
                 //barber czeka aż pojawi się klient
                 pthread_cond_wait(&customerReady, &barber_mutex);
@@ -85,9 +86,9 @@ void* Barber(void* arg)
     pthread_mutex_lock(&accessWaitingQueue);
     printf("Barber: haircutting customer, cliend id: %d\n", front(&waitingQueue));
     pop(&waitingQueue);
-    pthread_mutex_unlock(&accessWaitingQueue);
     //barber skończył strzyc klienta
 	printf("Barber: haircut done\n");
+	pthread_mutex_unlock(&accessWaitingQueue);
     pthread_cond_broadcast(&haircutDone);
     }
     return 0;
@@ -105,15 +106,16 @@ void* Client(void* numer) {
 	//Nie ma wolnych krzeseł - rezygnujemy
 	if(current_queue_size(&waitingQueue) >= totalChairs)
 	{
-        pthread_mutex_unlock(&accessWaitingQueue);
+		pthread_mutex_unlock(&accessWaitingQueue);
 		//Add client that resigned to resigned queue
 		pthread_mutex_lock(&accessResignedQueue);
         push(&resignedQueue, id);
         if(debug)
 			printf("Resigned count: %d\n", current_queue_size(&resignedQueue));
-		pthread_mutex_unlock(&accessResignedQueue);
 		if(debug)
 			printf("Client %d resigned\n", id);
+		pthread_mutex_unlock(&accessResignedQueue);
+
     }
     else
     {
@@ -122,17 +124,16 @@ void* Client(void* numer) {
         push(&waitingQueue, id);
         if(debug)
         	printf("Waiting clients count: %d\n", current_queue_size(&waitingQueue));
-        pthread_mutex_unlock(&accessWaitingQueue);
         //klient wchodzi do sklepu, uruchamia się pozytywka przy drzwiach,
         // ktora budzi fryzjera
         pthread_cond_broadcast(&customerShowedUp);
         //Something changed -> print full message here
         // pthread_mutex_lock(&accessWaitingQueue);
         //klient staje w kolejce i czeka na zawolanie
-
 		pthread_mutex_lock(&customer_waiting_mutex);
 		do {
             printf("\twątek #%d oczekuje na sygnał...\n", id);
+			pthread_mutex_unlock(&accessWaitingQueue);
             pthread_cond_wait(&chairAvailable, &customer_waiting_mutex);
             printf("\t... wątek #%d otrzymał sygnał!\n", id);
 			pthread_mutex_lock(&accessWaitingQueue);
@@ -149,6 +150,7 @@ void* Client(void* numer) {
                 break;
             }
 			pthread_mutex_unlock(&accessWaitingQueue);
+			pthread_mutex_unlock(&customer_waiting_mutex);
 		} while (1);
         pthread_mutex_unlock(&customer_waiting_mutex);
 		printf("Client is having a haircut, client id: %d\n", id);
