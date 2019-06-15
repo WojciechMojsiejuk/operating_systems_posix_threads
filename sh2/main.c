@@ -50,10 +50,11 @@ void* Barber(void* arg)
     	//Obsłużenie jednego klienta
     	while(1)
     	{
+			pthread_mutex_lock(&accessWaitingQueue);
             if (debug)
                 printf("Barber: Checking queue...!\n");
 			//Sprawdz raz kolejke
-    		pthread_mutex_lock(&accessWaitingQueue);
+
     		//Jest ktoś
     		if(current_queue_size(&waitingQueue) > 0)
     		{
@@ -65,9 +66,10 @@ void* Barber(void* arg)
                 //barber woła następnego klienta
                 if (debug)
                     printf("Barber: Next client!\n");
-				pthread_mutex_unlock(&accessWaitingQueue);
+
                 pthread_cond_broadcast(&chairAvailable);
                 //barber czeka aż pojawi się klient
+				pthread_mutex_unlock(&accessWaitingQueue);
 				pthread_mutex_lock(&barber_mutex);
                 pthread_cond_wait(&customerReady, &barber_mutex);
                 break;
@@ -96,11 +98,13 @@ void* Barber(void* arg)
 		print_queue(&waitingQueue);
 		printf("\n");
 	}
+	pthread_mutex_unlock(&accessWaitingQueue);
     //barber skończył strzyc klienta
 	printf("Barber: haircut done\n");
+	pthread_mutex_unlock(&barber_mutex);
+
     pthread_cond_broadcast(&haircutDone);
-	pthread_mutex_lock(&barber_mutex);
-	pthread_mutex_unlock(&accessWaitingQueue);
+
     }
     return 0;
 }
@@ -110,14 +114,16 @@ void* Client(void* numer) {
     id = *((int *) numer);
 	if(debug)
 		printf("\t(debug) Start thread #%d\n", id);
+
+	pthread_mutex_lock(&accessWaitingQueue);
     if(debug)
         printf("Client %d checks if chairs are available\n", id);
 	//sprawdzamy kolejkę
-	pthread_mutex_lock(&accessWaitingQueue);
+
 	//Nie ma wolnych krzeseł - rezygnujemy
 	if(current_queue_size(&waitingQueue) >= totalChairs)
 	{
-		pthread_mutex_unlock(&accessWaitingQueue);
+
 		//Add client that resigned to resigned queue
         push(&resignedQueue, id);
 		if(debug)
@@ -134,6 +140,7 @@ void* Client(void* numer) {
 		if(debug)
 			printf("Client %d resigned\n", id);
 		pthread_mutex_unlock(&accessResignedQueue);
+		pthread_mutex_unlock(&accessWaitingQueue);
 
     }
     else
@@ -178,7 +185,6 @@ void* Client(void* numer) {
                 break;
             }
 			pthread_mutex_unlock(&accessWaitingQueue);
-
 		} while (1);
         pthread_mutex_unlock(&customer_waiting_mutex);
 		pthread_mutex_lock(&customer_haircut_mutex);
