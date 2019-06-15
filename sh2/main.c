@@ -74,13 +74,13 @@ void* Barber(void* arg)
     		//Nie ma - ucinamy drzemke
     		else
     		{
+				pthread_mutex_lock(&barber_napping_mutex);
                 if (debug)
                     printf("Barber: Queue empty! Going to sleep...\n");
-    			pthread_mutex_lock(&barber_napping_mutex);
 				pthread_mutex_unlock(&accessWaitingQueue);
 				pthread_cond_wait(&customerShowedUp, &barber_napping_mutex);
-    			pthread_mutex_unlock(&barber_napping_mutex);
     			printf("Barber: waking up\n");
+				pthread_mutex_unlock(&barber_napping_mutex);
     		}
     	}
     pthread_mutex_lock(&accessWaitingQueue);
