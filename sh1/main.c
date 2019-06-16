@@ -89,14 +89,14 @@ struct Queue waitingQueue;
 void waiting(int sec)
 {
     int zzz = (((rand()%sec)+1)*1000000);
-		if(ENABLE_SLEEP)
+	if(ENABLE_SLEEP)
    		usleep(zzz);
 }
 
 void* Client(void* arg)
 {
-  int id;
-  id = *((int *) arg);
+	int id;
+	id = *((int *) arg);
 	if(debug >= 2)
 		printf("Created client with id: %d\n", id);
 	//Error variable check
@@ -303,7 +303,7 @@ int main(int argc, char* argv[])
 		debug = 2;
 	}
     if(debug == 1)
-      printf("Debug level 1 enabled\n");
+		printf("Debug level 1 enabled\n");
 	else if(debug == 2)
 		printf("Debug level 2 enabled\n");
     //Set all chairs count
@@ -317,8 +317,8 @@ int main(int argc, char* argv[])
 	totalClientsCount = atoi(argv[2]);
     if(totalClientsCount <= 0)
     {
-      fprintf(stderr, "Invalid total clients count\n");
-      return 3;
+		fprintf(stderr, "Invalid total clients count\n");
+		return 3;
     }
 	int mutexErr;
 	//Init attribute
@@ -362,7 +362,7 @@ int main(int argc, char* argv[])
 
 	//Init semaphores
     if(debug >= 2)
-        printf("Semaphores initialization\n");
+		printf("Semaphores initialization\n");
 	int errCheck = sem_init(&customerReadyToBeCut, 0, 0);
 	if(errCheck != 0)
 	{
@@ -405,7 +405,7 @@ int main(int argc, char* argv[])
         //clients show up to the hairdresser
         waiting(3);
         threadID[j]=j;
-				int errCode = pthread_create (&clientID[j], NULL, &Client, (void*)&threadID[j]);
+		int errCode = pthread_create (&clientID[j], NULL, &Client, (void*)&threadID[j]);
         if(errCode!=0)
 		{
 			fprintf(stderr, "pthread_create returned value: %d, could not create thread number %d\n", errCode, j);
@@ -415,7 +415,7 @@ int main(int argc, char* argv[])
     }
     for(int j=0;j<mainClientCount;j++)
     {
-      pthread_join(clientID[j], NULL);
+		pthread_join(clientID[j], NULL);
     }
 	pthread_join(barberID,NULL);
     exit(EXIT_SUCCESS);
