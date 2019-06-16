@@ -157,6 +157,12 @@ void* Barber(void* arg)
 	currentlyCutId = front(&waitingQueue);
 	pthread_mutex_unlock(&hairdressersChairTaken);
     pop(&waitingQueue);
+	mutexCode = pthread_mutex_lock(&accessResignedQueue);
+	if(mutexCode)
+	{
+		fprintf(stderr, "Barber: accessResignedQueue [1] could not be locked\n");
+		exit(EXIT_FAILURE);
+	}
 	if(debug)
 	{
 		printf("\n\nResigned: ");
@@ -166,7 +172,11 @@ void* Barber(void* arg)
 		print_queue(&waitingQueue);
 		printf("\n\n");
 	}
+	pthread_mutex_lock(&hairdressersChairTaken);
+	printf("Res: %d WRoom %d/%d [in: %d]\n", current_queue_size(&resignedQueue), current_queue_size(&waitingQueue), totalChairs, currentlyCutId);
+	pthread_mutex_unlock(&hairdressersChairTaken);
 	pthread_mutex_unlock(&accessWaitingQueue);
+	pthread_mutex_unlock(&accessResignedQueue);
 	waiting(5);
     //barber skończył strzyc klienta
 	//Skonczyl strzyc -> zmieniamy currentlyCutId na -1?
@@ -227,6 +237,9 @@ void* Client(void* numer) {
 			printf("Resigned count: %d\n", current_queue_size(&resignedQueue));
 		if(debug >= 2)
 			printf("Client %d resigned\n", id);
+		pthread_mutex_lock(&hairdressersChairTaken);
+		printf("Res: %d WRoom %d/%d [in: %d]\n", current_queue_size(&resignedQueue), current_queue_size(&waitingQueue), totalChairs, currentlyCutId);
+		pthread_mutex_unlock(&hairdressersChairTaken);
 		pthread_mutex_unlock(&accessResignedQueue);
 		pthread_mutex_unlock(&accessWaitingQueue);
     }
@@ -250,6 +263,9 @@ void* Client(void* numer) {
         	printf("Waiting clients count: %d\n", current_queue_size(&waitingQueue));
         //klient wchodzi do sklepu, uruchamia się pozytywka przy drzwiach,
         // ktora budzi fryzjera
+		pthread_mutex_lock(&hairdressersChairTaken);
+		printf("Res: %d WRoom %d/%d [in: %d]\n", current_queue_size(&resignedQueue), current_queue_size(&waitingQueue), totalChairs, currentlyCutId);
+		pthread_mutex_unlock(&hairdressersChairTaken);
 		pthread_mutex_unlock(&accessWaitingQueue);
 		pthread_mutex_unlock(&accessResignedQueue);
         pthread_cond_broadcast(&customerShowedUp);
