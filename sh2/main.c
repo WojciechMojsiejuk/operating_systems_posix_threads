@@ -9,7 +9,7 @@
 #include <time.h>
 #include "queue.h"
 
-#define ENABLE_SLEEP 0
+#define ENABLE_SLEEP 1
 
 //1 - debug mode level 1
 //2 - debug mode level 2
@@ -180,6 +180,7 @@ void* Client(void* numer) {
 					fprintf(stderr, "accessResignedQueue could not be locked\n");
 					exit(EXIT_FAILURE);
 			}
+			push(&waitingQueue, id);
 			pthread_mutex_lock(&hairdressersChairTaken);
 			if(debug)
 			{
@@ -193,7 +194,6 @@ void* Client(void* numer) {
 			printf("Res: %d WRoom %d/%d [in: %d]\n", current_queue_size(&resignedQueue), current_queue_size(&waitingQueue), totalChairs, currentlyCutId);
 			pthread_mutex_unlock(&accessResignedQueue);
 			pthread_mutex_unlock(&hairdressersChairTaken);
-			push(&waitingQueue, id);
 			pthread_mutex_unlock(&accessWaitingQueue);
 
 			//wake up barber
