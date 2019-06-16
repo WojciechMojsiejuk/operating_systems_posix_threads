@@ -69,16 +69,13 @@ int N;
 int totalClientsCount;
 pthread_mutex_t accessTotalClientsCount;
 
-//If hairdresser chair is taken (1) or not (0)
-//??
-//error check mutex
+//mutex attribute
 pthread_mutexattr_t attribute;
 
 pthread_mutex_t hairdressersChairTaken;
 int currentlyCutId = -1;
-sem_t customerReadyToBeCut;
 //If there is any customer ready to be cut
-// pthread_mutex_t customerReadyToBeCut = PTHREAD_MUTEX_INITIALIZER;
+sem_t customerReadyToBeCut;
 
 //Resigned queue (1 - can access, 0 - can not access)
 pthread_mutex_t accessResignedQueue;
@@ -88,16 +85,6 @@ struct Queue resignedQueue;
 pthread_mutex_t accessWaitingQueue;
 struct Queue waitingQueue;
 
-/*
-void show_message()
-{
-    printf("Res:%d WRomm: %d/%ld [in: %d]",
-    clientsResignationCount,
-    current_queue_size(&waitingRoom),
-    N,
-    currentlyCutClientId);
-}
-*/
 //Waits <1;sec> seconds (random number)
 void waiting(int sec)
 {
@@ -114,17 +101,16 @@ void* Client(void* arg)
 		printf("Created client with id: %d\n", id);
 	//Error variable check
 	int result;
-	//sprawdzamy kolejkę
+	//Check waiting queue
 	result = pthread_mutex_lock(&accessWaitingQueue);
 	if(result)
 	{
-			fprintf(stderr, "accessWaitingQueue could not be locked");
-			exit(EXIT_FAILURE);
+		fprintf(stderr, "accessWaitingQueue could not be locked\n");
+		exit(EXIT_FAILURE);
 	}
-	//Nie ma wolnych krzeseł - rezygnujemy
+	//No empty chair - waiting queue full
 	if(current_queue_size(&waitingQueue) >= N)
 	{
-		//pthread_mutex_unlock(&accessWaitingQueue);
 		//Add client that resigned to resigned queue
 		result = pthread_mutex_lock(&accessResignedQueue);
 		if(result)
@@ -134,12 +120,21 @@ void* Client(void* arg)
 		}
 		push(&resignedQueue, id);
 
-		pthread_mutex_lock(&accessTotalClientsCount);
+		result = pthread_mutex_lock(&accessTotalClientsCount);
+		if(result)
+		{
+			fprintf(stderr, "accessTotalClientsCount could not be locked");
+			exit(EXIT_FAILURE);
+		}
 		--totalClientsCount;
 		pthread_mutex_unlock(&accessTotalClientsCount);
-		//Something changed -> print full message here
-		//pthread_mutex_lock(&accessWaitingQueue);	
-		pthread_mutex_lock(&hairdressersChairTaken);
+		//Something changed -> print full message here	
+		result = pthread_mutex_lock(&hairdressersChairTaken);
+		if(result)
+		{
+			fprintf(stderr, "hairdressersChairTaken could not be locked");
+			exit(EXIT_FAILURE);
+		}
 		if(debug)
 		{
 			printf("Resigned: ");
@@ -159,41 +154,24 @@ void* Client(void* arg)
 			printf("Client %d resigned\n", id);
 		return 0;
 	}
-	//Kolejka jest pusta
-	else if(current_queue_size(&waitingQueue) == 0)
-	{
-		//Jeśli barber jest wolny - siadamy do kolejki i tak
-
-		//Barber jest zajęty - dołączamy do kolejki czekających
-		//Something changed -> print full message here
-		if(debug >= 2)
-			printf("Queue is empty, joining client id: %d\n", id);
-		push(&waitingQueue, id);
-		pthread_mutex_lock(&accessResignedQueue);
-		pthread_mutex_lock(&hairdressersChairTaken);
-		if(debug)
-		{
-			printf("Resigned: ");
-			print_queue(&resignedQueue);
-			printf("\n");
-			printf("In queue: ");
-			print_queue(&waitingQueue);
-			printf("\n");
-		}
-		printf("Res: %d WRoom %d/%d [in: %d]\n", current_queue_size(&resignedQueue), current_queue_size(&waitingQueue), N, currentlyCutId);
-		pthread_mutex_unlock(&accessWaitingQueue);
-		pthread_mutex_unlock(&accessResignedQueue);
-		pthread_mutex_unlock(&hairdressersChairTaken);
-    sem_post(&customerReadyToBeCut);
-	}
-	//Kolejka ma wolne miejsca - dołączamy do kolejki
+	//Waiting queue not full - we can join
 	else
 	{
 		if(debug >= 2)
 			printf("Client joining queue, clent id: %d\n", id);
 		//Something changed -> print full message here
-		pthread_mutex_lock(&accessResignedQueue);
-		pthread_mutex_lock(&hairdressersChairTaken);
+		result = pthread_mutex_lock(&accessResignedQueue);
+		if(result)
+		{
+			fprintf(stderr, "accessResignedQueue could not be locked");
+			exit(EXIT_FAILURE);
+		}
+		result = pthread_mutex_lock(&hairdressersChairTaken);
+		if(result)
+		{
+			fprintf(stderr, "hairdressersChairTaken could not be locked");
+			exit(EXIT_FAILURE);
+		}
 		if(debug)
 		{
 			printf("Resigned: ");
@@ -208,7 +186,7 @@ void* Client(void* arg)
 		pthread_mutex_unlock(&hairdressersChairTaken);
 		push(&waitingQueue, id);
 		pthread_mutex_unlock(&accessWaitingQueue);
-    sem_post(&customerReadyToBeCut);
+    	sem_post(&customerReadyToBeCut);
 	}
   return 0;
 }
@@ -217,24 +195,35 @@ void* Barber()
 {
 	if(debug >= 2)
 		printf("Created barber\n");
+	//variable containing latest err code
+	int result = 1;
 	while(1)
 	{
-		//Sprawdz raz kolejke
+		//Check waiting room once
 		pthread_mutex_lock(&accessWaitingQueue);
 
-		//Ktoś jest w kolejce
+		//There is someone waiting
 		if(current_queue_size(&waitingQueue) > 0)
 		{
-			pthread_mutex_lock(&hairdressersChairTaken);
-			//Kolejka jest zablokowana - front() zwroci pierwszego klienta
+			result = pthread_mutex_lock(&hairdressersChairTaken);
+			if(result)
+			{
+				fprintf(stderr, "hairdressersChairTaken could not be locked");
+				exit(EXIT_FAILURE);
+			}
+			//Get first client
 			currentlyCutId = front(&waitingQueue);
 			pop(&waitingQueue);
 			//Something changed -> print full message here
-			//pthread_mutex_lock(&
-			//Strzyzenie
-			if(debug >=2)
+			//Cutting...
+			if(debug >= 2)
 				printf("Barber: cutting %d\n", currentlyCutId);
-			pthread_mutex_lock(&accessResignedQueue);
+			result = pthread_mutex_lock(&accessResignedQueue);
+			if(result)
+			{
+				fprintf(stderr, "accessResignedQueue could not be locked");
+				exit(EXIT_FAILURE);
+			}
 			if(debug)
 			{
 				printf("Resigned: ");
@@ -250,24 +239,39 @@ void* Barber()
 			waiting(9);
 			if(debug >= 2)
 				printf("Barber: finished cutting %d\n", currentlyCutId);
-			//Skonczono strzyzenie
-			//Zmniejsz liczbe klientow
-			pthread_mutex_lock(&accessTotalClientsCount);
+			//Cutting done
+			//Decrease totalClientsCount
+			result = pthread_mutex_lock(&accessTotalClientsCount);
+			if(result)
+			{
+				fprintf(stderr, "accessTotalClientsCount could not be locked");
+				exit(EXIT_FAILURE);
+			}
 			--totalClientsCount;
 			pthread_mutex_unlock(&accessTotalClientsCount);
-			//Nikt nie jest teraz strzyzony - ustaw id na -1
-			pthread_mutex_lock(&hairdressersChairTaken);
+			//Nobody is on chair - set currentlyCutId to -1
+			result = pthread_mutex_lock(&hairdressersChairTaken);
+			if(result)
+			{
+				fprintf(stderr, "accessTotalClientsCount could not be locked");
+				exit(EXIT_FAILURE);
+			}
 			currentlyCutId = -1;
 			pthread_mutex_unlock(&hairdressersChairTaken);
 		}
-		//Spij
-    else
-    {
-        pthread_mutex_unlock(&accessWaitingQueue);
-        sem_wait(&customerReadyToBeCut);
-    }
-		//Nie bedzie juz wiecej klientow
-		pthread_mutex_lock(&accessTotalClientsCount);
+		//Go to sleep
+		else
+		{
+		    pthread_mutex_unlock(&accessWaitingQueue);
+		    sem_wait(&customerReadyToBeCut);
+		}
+		//Can I go home
+		result = pthread_mutex_lock(&accessTotalClientsCount);
+		if(result)
+		{
+			fprintf(stderr, "accessTotalClientsCount could not be locked");
+			exit(EXIT_FAILURE);
+		}
 		if(totalClientsCount == 0)
 		{
 			printf("Barber is going home\n");
@@ -300,81 +304,102 @@ int main(int argc, char* argv[])
 	}
     if(debug == 1)
       printf("Debug level 1 enabled\n");
-		else if(debug == 2)
-			printf("Debug level 2 enabled\n");
+	else if(debug == 2)
+		printf("Debug level 2 enabled\n");
     //Set all chairs count
-		N = atoi(argv[1]);
+	N = atoi(argv[1]);
     if(N <= 0)
     {
       fprintf(stderr, "Invalid total chairs count\n");
       return 2;
     }
     //Set totalClientsCount
-		totalClientsCount = atoi(argv[2]);
+	totalClientsCount = atoi(argv[2]);
     if(totalClientsCount <= 0)
     {
       fprintf(stderr, "Invalid total clients count\n");
       return 3;
     }
-		int mutexErr;
-		//Init attribute (do error check)
-		pthread_mutexattr_init(&attribute);
-		pthread_mutexattr_settype(&attribute, PTHREAD_MUTEX_ERRORCHECK);
-		//Init mutexes
-		pthread_mutex_init(&hairdressersChairTaken, &attribute);
-		pthread_mutex_init(&accessResignedQueue, &attribute);
-		pthread_mutex_init(&accessWaitingQueue, &attribute);
-		pthread_mutex_init(&accessTotalClientsCount, &attribute);
-		
-		//Init semaphores
+	int mutexErr;
+	//Init attribute
+	mutexErr = pthread_mutexattr_init(&attribute);
+	if(mutexErr)
+	{
+		fprintf(stderr, "Could not init mutex attribute\n");
+		return 4;
+	}
+	mutexErr = pthread_mutexattr_settype(&attribute, PTHREAD_MUTEX_ERRORCHECK);
+	if(mutexErr)
+	{
+		fprintf(stderr, "Could not set mutex attribute\n");
+		return 5;
+	}
+	//Init mutexes
+	mutexErr = pthread_mutex_init(&hairdressersChairTaken, &attribute);
+	if(mutexErr)
+	{
+		fprintf(stderr, "Could not init mutex hairdressersChairTaken\n");
+		return 6;
+	}
+	mutexErr = pthread_mutex_init(&accessResignedQueue, &attribute);
+	if(mutexErr)
+	{
+		fprintf(stderr, "Could not init mutex accessResignedQueue\n");
+		return 7;
+	}
+	mutexErr = pthread_mutex_init(&accessWaitingQueue, &attribute);
+	if(mutexErr)
+	{
+		fprintf(stderr, "Could not init mutex accessWaitingQueue\n");
+		return 8;
+	}
+	mutexErr = pthread_mutex_init(&accessTotalClientsCount, &attribute);
+	if(mutexErr)
+	{
+		fprintf(stderr, "Could not init mutex accessTotalClientsCount\n");
+		return 9;
+	}
+
+	//Init semaphores
     if(debug >= 2)
         printf("Semaphores initialization\n");
-
-		int errCheck = sem_init(&customerReadyToBeCut, 0, 0);
-		if(errCheck != 0)
-		{
-			fprintf(stderr, "Semaphore customerReadyToBeCut could not init\n");
-			return 4;
-		}
-        /*
-		int errCheck2 = sem_init(&accesswaitingQueue, 0, 0);
-		if(errCheck2 != 0)
-		{
-			fprintf(stderr, "Semaphore accesswaitingQueue could not init\n");
-			return 5;
-		}
-    int errCheck3 = sem_init(&hairdressersChairTaken, 0, 0);
-		if(errCheck3 != 0)
-		{
-			fprintf(stderr, "Semaphore hairdressersChairTaken could not init\n");
-			return 6;
-		}*/
+	int errCheck = sem_init(&customerReadyToBeCut, 0, 0);
+	if(errCheck != 0)
+	{
+		fprintf(stderr, "Semaphore customerReadyToBeCut could not init\n");
+		return 10;
+	}
     if(debug >= 2)
         printf("(debug) N chairs = %d\n",N);
-		//Init queues
+	//Init queues
     if(debug >= 2)
         printf("Initialize queues\n");
     init(&waitingQueue);
-		init(&resignedQueue);
-		//Create barber thread
-		pthread_t barberID;
-		pthread_create(&barberID, NULL, &Barber, NULL);
+	init(&resignedQueue);
+	//Create barber thread
+	pthread_t barberID;
+	int barberResult = pthread_create(&barberID, NULL, &Barber, NULL);
+	if(barberResult)
+	{
+		fprintf(stderr, "Could not create barber thread\n");
+		return 11;
+	}
     //Create clients threads
     pthread_t* clientID;
     clientID = (pthread_t*)malloc(sizeof(pthread_t)*totalClientsCount);
-		if(clientID == NULL)
-		{
-			fprintf(stderr, "Could not allocate memory\n");
-			return 9;
-		}
+	if(clientID == NULL)
+	{
+		fprintf(stderr, "Could not allocate memory\n");
+		return 12;
+	}
     int* threadID = (int*)malloc(sizeof(int)*totalClientsCount);
-		if(threadID == NULL)
-		{
-			fprintf(stderr, "Could not allocate memory\n");
-			return 10;
-		}
+	if(threadID == NULL)
+	{
+		fprintf(stderr, "Could not allocate memory\n");
+		return 13;
+	}
     srand((unsigned)time(NULL));
-		int mainClientCount = totalClientsCount;
+	int mainClientCount = totalClientsCount;
     for(int j=0;j<mainClientCount;j++)
     {
         //clients show up to the hairdresser
@@ -382,16 +407,16 @@ int main(int argc, char* argv[])
         threadID[j]=j;
 				int errCode = pthread_create (&clientID[j], NULL, &Client, (void*)&threadID[j]);
         if(errCode!=0)
-			{
-				fprintf(stderr, "pthread_create returned value: %d, could not create thread number %d\n", errCode, j);
-				fprintf(stderr, "Make sure you did not try to create too many threads\n");
-				return 11;
-			}
+		{
+			fprintf(stderr, "pthread_create returned value: %d, could not create thread number %d\n", errCode, j);
+			fprintf(stderr, "Make sure you did not try to create too many threads\n");
+			return 14;
+		}
     }
     for(int j=0;j<mainClientCount;j++)
     {
       pthread_join(clientID[j], NULL);
     }
-		pthread_join(barberID,NULL);
+	pthread_join(barberID,NULL);
     exit(EXIT_SUCCESS);
 }
