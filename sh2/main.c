@@ -9,7 +9,7 @@
 #include <time.h>
 #include "queue.h"
 
-#define ENABLE_SLEEP 1
+#define ENABLE_SLEEP 0
 
 //1 - debug mode level 1
 //2 - debug mode level 2
@@ -42,7 +42,7 @@ int currentlyCutId = -1;
 void waiting(int sec)
 {
     int zzz = (((rand()%sec)+1)*1000000);
-		if(ENABLE_SLEEP)
+	if(ENABLE_SLEEP)
    		usleep(zzz);
 }
 
