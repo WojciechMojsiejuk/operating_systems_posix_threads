@@ -160,6 +160,7 @@ void* Client(void* arg)
 		if(debug >= 2)
 			printf("Client joining queue, clent id: %d\n", id);
 		//Something changed -> print full message here
+		push(&waitingQueue, id);
 		result = pthread_mutex_lock(&accessResignedQueue);
 		if(result)
 		{
@@ -184,7 +185,6 @@ void* Client(void* arg)
 		printf("Res: %d WRoom %d/%d [in: %d]\n", current_queue_size(&resignedQueue), current_queue_size(&waitingQueue), N, currentlyCutId);
 		pthread_mutex_unlock(&accessResignedQueue);
 		pthread_mutex_unlock(&hairdressersChairTaken);
-		push(&waitingQueue, id);
 		pthread_mutex_unlock(&accessWaitingQueue);
     	sem_post(&customerReadyToBeCut);
 	}
