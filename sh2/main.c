@@ -9,8 +9,8 @@
 #include <time.h>
 #include "queue.h"
 
-#define MAX_TIMED_WAIT 30
-#define ENABLE_SLEEP 0
+#define MAX_TIMED_WAIT 10
+#define ENABLE_SLEEP 1
 
 //1 - debug mode level 1
 //2 - debug mode level 2
@@ -213,6 +213,7 @@ void* Client(void* numer) {
 		pthread_mutex_unlock(&accessWaitingQueue);
 		pthread_mutex_lock(&accessResignedQueue);
         push(&resignedQueue, id);
+		pthread_mutex_lock(&accessWaitingQueue);
 		if(debug)
 		{
 			printf("\n\nResigned: ");
@@ -227,6 +228,7 @@ void* Client(void* numer) {
 		if(debug >= 2)
 			printf("Client %d resigned\n", id);
 		pthread_mutex_unlock(&accessResignedQueue);
+		pthread_mutex_unlock(&accessWaitingQueue);
     }
     else
     {
@@ -409,7 +411,7 @@ int main(int argc, char* argv[])
     int j;
 	/* utworzenie wątków */
 	for (j=0; j < totalClientsCount; j++) {
-		waiting(2);
+		waiting(1);
         threadID[j]=j;
 		int errCode = pthread_create (&clientID[j], NULL, &Client, (void*)&threadID[j]);
         if(errCode!=0)
