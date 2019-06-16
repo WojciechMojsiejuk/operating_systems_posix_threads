@@ -58,12 +58,7 @@ void* Barber(void* arg)
 		//Someone is waiting
 		if(current_queue_size(&waitingQueue) > 0)
 		{
-			result = pthread_mutex_lock(&hairdressersChairTaken);
-			if (result)
-			{
-					fprintf(stderr, "hairdressersChairTaken could not be locked\n");
-					exit(EXIT_FAILURE);
-			}
+			pthread_mutex_lock(&hairdressersChairTaken);
 			//Take client
 			currentlyCutId = front(&waitingQueue);
 			pop(&waitingQueue);
@@ -185,12 +180,7 @@ void* Client(void* numer) {
 					fprintf(stderr, "accessResignedQueue could not be locked\n");
 					exit(EXIT_FAILURE);
 			}
-			result = pthread_mutex_lock(&hairdressersChairTaken);
-			if (result)
-			{
-					fprintf(stderr, "hairdressersChairTaken could not be locked\n");
-					exit(EXIT_FAILURE);
-			}
+			pthread_mutex_lock(&hairdressersChairTaken);
 			if(debug)
 			{
 				printf("Resigned: ");
