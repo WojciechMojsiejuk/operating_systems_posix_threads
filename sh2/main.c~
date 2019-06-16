@@ -413,7 +413,7 @@ int main(int argc, char* argv[])
     int j;
 	/* utworzenie wątków */
 	for (j=0; j < totalClientsCount; j++) {
-		waiting(3);
+		waiting(5);
         threadID[j]=j;
 		int errCode = pthread_create (&clientID[j], NULL, &Client, (void*)&threadID[j]);
         if(errCode!=0)
