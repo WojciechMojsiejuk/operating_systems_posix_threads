@@ -9,8 +9,8 @@
 #include <time.h>
 #include "queue.h"
 
-//Waiting for X seconds in cond_timedwait will result in error
-#define MAX_TIMED_WAIT 10
+////Waiting for X seconds in cond_timedwait will result in error
+//#define MAX_TIMED_WAIT 10
 
 #define ENABLE_SLEEP 0
 
@@ -57,7 +57,7 @@ void waiting(int sec)
 
 void* Barber(void* arg)
 {
-	int result;
+	//int result;
 	while(1)
 	{
 		//Sprawdz raz kolejke
@@ -378,6 +378,7 @@ int main(int argc, char* argv[])
     int j;
 	/* utworzenie wątków */
 	for (j=0; j < totalClientsCount; j++) {
+		waiting(4);
         threadID[j]=j;
 		int errCode = pthread_create (&clientID[j], NULL, &Client, (void*)&threadID[j]);
         if(errCode!=0)
