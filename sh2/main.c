@@ -9,7 +9,7 @@
 #include <time.h>
 #include "queue.h"
 
-#define MAX_TIMED_WAIT 10
+#define MAX_TIMED_WAIT 30
 #define ENABLE_SLEEP 0
 
 //1 - debug mode level 1
@@ -44,6 +44,13 @@ pthread_cond_t	customerShowedUp	= PTHREAD_COND_INITIALIZER;
 pthread_mutex_t hairdressersChairTaken;
 int currentlyCutId = -1;
 
+//Waits <1;sec> seconds (random number)
+void waiting(int sec)
+{
+    int zzz = (((rand()%sec)+1)*1000000);
+		if(ENABLE_SLEEP)
+   		usleep(zzz);
+}
 
 void* Barber(void* arg)
 {
@@ -151,12 +158,12 @@ void* Barber(void* arg)
     pop(&waitingQueue);
 	if(debug)
 	{
-		printf("Resigned: ");
+		printf("\n\nResigned: ");
 		print_queue(&resignedQueue);
-		printf("\n");
+		printf("\n\n");
 		printf("In queue: ");
 		print_queue(&waitingQueue);
-		printf("\n");
+		printf("\n\n");
 	}
 	pthread_mutex_unlock(&accessWaitingQueue);
     //barber skończył strzyc klienta
@@ -208,12 +215,12 @@ void* Client(void* numer) {
         push(&resignedQueue, id);
 		if(debug)
 		{
-			printf("Resigned: ");
+			printf("\n\nResigned: ");
 			print_queue(&resignedQueue);
-			printf("\n");
+			printf("\n\n");
 			printf("In queue: ");
 			print_queue(&waitingQueue);
-			printf("\n");
+			printf("\n\n");
 		}
         if(debug >= 2)
 			printf("Resigned count: %d\n", current_queue_size(&resignedQueue));
@@ -229,12 +236,12 @@ void* Client(void* numer) {
         push(&waitingQueue, id);
 		if(debug)
 		{
-			printf("Resigned: ");
+			printf("\n\nResigned: ");
 			print_queue(&resignedQueue);
-			printf("\n");
+			printf("\n\n");
 			printf("In queue: ");
 			print_queue(&waitingQueue);
-			printf("\n");
+			printf("\n\n");
 		}
         if(debug >= 2)
         	printf("Waiting clients count: %d\n", current_queue_size(&waitingQueue));
@@ -402,6 +409,7 @@ int main(int argc, char* argv[])
     int j;
 	/* utworzenie wątków */
 	for (j=0; j < totalClientsCount; j++) {
+		waiting(2);
         threadID[j]=j;
 		int errCode = pthread_create (&clientID[j], NULL, &Client, (void*)&threadID[j]);
         if(errCode!=0)
